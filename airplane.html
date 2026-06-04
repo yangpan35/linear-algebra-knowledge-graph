@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>3D 飞机姿态模拟器 (欧拉角)</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #1a1a2e; /* 深色背景 */
+            color: #fff; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        #controls { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            background: rgba(15, 52, 96, 0.85); /* 半透明控制面板 */
+            padding: 20px 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #16213e;
+            z-index: 10;
+        }
+        h3 { margin-top: 0; margin-bottom: 20px; text-align: center; color: #e94560; }
+        .control-group { margin-bottom: 15px; display: flex; align-items: center; }
+        label { width: 100px; font-weight: bold; }
+        input[type=range] { width: 180px; margin: 0 15px; cursor: pointer; }
+        span.value { width: 50px; text-align: right; font-family: monospace; font-size: 1.1em; color: #43aa8b; }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #888;
+            font-size: 14px;
+            z-index: 10;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="controls">
+        <h3>姿态控制台 (Euler Angles)</h3>
+        
+        <div class="control-group">
+            <label>滚转 (Roll)</label>
+            <input type="range" id="roll" min="-180" max="180" value="0">
+            <span id="roll-val" class="value">0°</span>
+        </div>
+        
+        <div class="control-group">
+            <label>俯仰 (Pitch)</label>
+            <input type="range" id="pitch" min="-90" max="90" value="0">
+            <span id="pitch-val" class="value">0°</span>
+        </div>
+        
+        <div class="control-group">
+            <label>偏航 (Yaw)</label>
+            <input type="range" id="yaw" min="-180" max="180" value="0">
+            <span id="yaw-val" class="value">0°</span>
+        </div>
+    </div>
+
+    <div id="instructions">
+        坐标系说明: 红线 = X轴 (横轴)，绿线 = Y轴 (垂直轴)，蓝线 = Z轴 (纵轴)。<br>
+        飞机初始指向负Z轴方向（背对屏幕向里）。
+    </div>
+
+    <script>
+        // 1. 初始化场景、相机和渲染器
+        const scene = new THREE.Scene();
+        // 【已修复】修正了颜色格式错误，从 #1a1a2e 改为 0x1a1a2e
+        scene.fog = new THREE.FogExp2(0x1a1a2e, 0.05);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 4, 7); // 调整了相机位置，视角更好
+        camera.lookAt(0, 0, 0);       // 看向原点
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. 设置光照
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); 
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        // 3. 构建飞机模型
+        const airplane = new THREE.Group();
+        airplane.rotation.order = 'YXZ'; // 经典的 偏航-俯仰-滚转 顺序
+
+        // 材质
+        const bodyMat = new THREE.MeshPhongMaterial({ color: 0xdcdde1, flatShading: true }); 
+        const wingMat = new THREE.MeshPhongMaterial({ color: 0xe84118, flatShading: true }); 
+        const cockpitMat = new THREE.MeshPhongMaterial({ color: 0x2f3640 }); 
+
+        // 机身 (用圆柱体代替，顺着Z轴方向延伸)
+        const fuselageGeom = new THREE.CylinderGeometry(0.4, 0.2, 4, 12);
+        fuselageGeom.rotateX(Math.PI / 2); 
+        const fuselage = new THREE.Mesh(fuselageGeom, bodyMat);
+        airplane.add(fuselage);
+
+        // 机头 (圆锥)
+        const noseGeom = new THREE.ConeGeometry(0.4, 1.0, 12);
+        noseGeom.rotateX(Math.PI / 2);
+        noseGeom.translate(0, 0, -2.5); 
+        const nose = new THREE.Mesh(noseGeom, bodyMat);
+        airplane.add(nose);
+
+        // 座舱
+        const cockpitGeom = new THREE.BoxGeometry(0.4, 0.3, 0.8);
+        cockpitGeom.translate(0, 0.35, -0.8);
+        const cockpit = new THREE.Mesh(cockpitGeom, cockpitMat);
+        airplane.add(cockpit);
+
+        // 主翼
+        const wingGeom = new THREE.BoxGeometry(6, 0.08, 1.2);
+        wingGeom.translate(0, 0, -0.2);
+        const wing = new THREE.Mesh(wingGeom, wingMat);
+        airplane.add(wing);
+
+        // 水平尾翼
+        const hTailGeom = new THREE.BoxGeometry(2.0, 0.06, 0.8);
+        hTailGeom.translate(0, 0, 1.6);
+        const hTail = new THREE.Mesh(hTailGeom, wingMat);
+        airplane.add(hTail);
+
+        // 垂直尾翼
+        const vTailGeom = new THREE.BoxGeometry(0.06, 1.0, 0.8);
+        vTailGeom.translate(0, 0.5, 1.6);
+        const vTail = new THREE.Mesh(vTailGeom, wingMat);
+        airplane.add(vTail);
+
+        scene.add(airplane);
+
+        // 4. 添加空间坐标轴 (帮助直观感受欧式空间与向量分量)
+        const axesHelper = new THREE.AxesHelper(6);
+        scene.add(axesHelper);
+
+        // 5. 交互逻辑
+        const sliders = {
+            roll: document.getElementById('roll'),
+            pitch: document.getElementById('pitch'),
+            yaw: document.getElementById('yaw')
+        };
+        const displays = {
+            roll: document.getElementById('roll-val'),
+            pitch: document.getElementById('pitch-val'),
+            yaw: document.getElementById('yaw-val')
+        };
+
+        function updateAttitude() {
+            const r = parseFloat(sliders.roll.value);
+            const p = parseFloat(sliders.pitch.value);
+            const y = parseFloat(sliders.yaw.value);
+
+            displays.roll.innerText = r + '°';
+            displays.pitch.innerText = p + '°';
+            displays.yaw.innerText = y + '°';
+
+            // 角度转弧度，应用到飞机的局部旋转上
+            airplane.rotation.z = THREE.MathUtils.degToRad(-r); // Roll 绕纵轴Z
+            airplane.rotation.x = THREE.MathUtils.degToRad(p);  // Pitch 绕横轴X
+            airplane.rotation.y = THREE.MathUtils.degToRad(-y); // Yaw 绕垂直轴Y
+        }
+
+        // 绑定滑块事件
+        sliders.roll.addEventListener('input', updateAttitude);
+        sliders.pitch.addEventListener('input', updateAttitude);
+        sliders.yaw.addEventListener('input', updateAttitude);
+
+        // 窗口尺寸自适应
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 6. 渲染循环
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
