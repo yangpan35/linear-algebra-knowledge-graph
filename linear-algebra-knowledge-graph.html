@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>线性代数与解析几何 · 向量组的线性相关性 | 知识图谱</title>
+    <!-- MathJax 3 配置：渲染数学公式 -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'no-mathjax'
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+    <!-- 使用稳定 Cytoscape CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, 'Noto Sans', system-ui, sans-serif;
+        }
+        #cy {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 20%, #f0f4fa, #d9e2ec);
+            cursor: grab;
+            z-index: 1;
+        }
+        #cy:active {
+            cursor: grabbing;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            background: rgba(30, 40, 50, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 10px 18px;
+            border-radius: 60px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .ctrl-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+            color: white;
+            text-shadow: 0 0 2px rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+        }
+        .ctrl-btn:hover {
+            background: white;
+            color: #1e3b4f;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+        .title-bar {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 40, 50, 0.7);
+            backdrop-filter: blur(12px);
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            z-index: 10;
+            border: 1px solid rgba(255,255,255,0.3);
+            pointer-events: none;
+        }
+        .title-bar h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .title-bar p {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+        .instruction {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.65);
+            backdrop-filter: blur(12px);
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            color: #f0f0f0;
+            z-index: 10;
+            pointer-events: none;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .instruction span {
+            display: inline-block;
+            margin: 0 4px;
+        }
+        .color-badge {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 20px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+        @keyframes rippleAnim {
+            0% { transform: scale(0); opacity: 0.8; }
+            100% { transform: scale(6); opacity: 0; }
+        }
+        .ripple {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,215,0,0.6), rgba(255,100,0,0));
+            pointer-events: none;
+            z-index: 1000;
+            animation: rippleAnim 0.6s ease-out forwards;
+        }
+        .error-message {
+            position: fixed;
+            bottom: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #c0392b;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 32px;
+            z-index: 100;
+            font-weight: bold;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 1000;
+        }
+        .case-box, .ai-box, .knowledge-box {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="title-bar">
+    <h2>📚 线性代数与解析几何 · 向量组的线性相关性 | 知识图谱</h2>
+    <p>🎯 点击节点 → 知识点 + 典型例题 + 工程拓展 + AI前沿 | 拖拽/缩放 | 数学公式已启用</p>
+</div>
+<div id="cy"></div>
+<div class="controls">
+    <button class="ctrl-btn" id="btnReset">⟳ 重置布局</button>
+    <button class="ctrl-btn" id="btnZoomIn">➕ 放大</button>
+    <button class="ctrl-btn" id="btnZoomOut">➖ 缩小</button>
+    <button class="ctrl-btn" id="btnFit">⛶ 适应屏幕</button>
+</div>
+<div class="instruction">
+    💡 分组： 
+    <span><span class="color-badge" style="background:#2C6E9E;"></span> 核心定义</span> · 
+    <span><span class="color-badge" style="background:#3BA99C;"></span> 判别方法</span> · 
+    <span><span class="color-badge" style="background:#E67E22;"></span> 几何/结构</span> · 
+    <span><span class="color-badge" style="background:#9B59B6;"></span> AI前沿与计算</span>
+</div>
+
+<script>
+    (function() {
+        // ---------- 节点数据：包含四个指定节点 ----------
+        // 1. 向量定义  2. 线性运算  3. 向量组的等价  4. 解的结构与向量组（已存在）
+        const nodesData = [
+            { 
+                id: "vector_def", label: "向量定义", group: 1,
+                knowledgePoints: [
+                    "向量：既有大小又有方向的量，通常用列向量 \\(\\boldsymbol{\\alpha} = (a_1, a_2, \\dots, a_n)^\\mathsf{T}\\) 表示。",
+                    "若无特别声明，向量均为列向量，且所涉及的数都是实数；每个关于列向量的结论都有对应的行向量版本。",
+                    "向量的模：\\(\\|\\boldsymbol{\\alpha}\\| = \\sqrt{a_1^2 + a_2^2 + \\dots + a_n^2}\\)。"
+                ],
+                engineeringCase: `📌 **拓展练习（典型例题）**  
+**例1** 设 \\(\\boldsymbol{\\alpha} = (1,2,3)^\\mathsf{T}\\)，求其模长。  
+**解**：\\(\\|\\boldsymbol{\\alpha}\\| = \\sqrt{1^2+2^2+3^2} = \\sqrt{14}\\)。  
+**案例**：物理中的力、速度、位移等矢量均用向量表示。`,
+                aiExtension: `🤖 **应用前沿：向量嵌入**  
+在自然语言处理中，单词、句子被映射为高维向量（Embedding），向量的几何性质（如夹角余弦）用于度量语义相似度。`
+            },
+            { 
+                id: "linear_ops", label: "线性运算", group: 1,
+                knowledgePoints: [
+                    "向量的加法：\\(\\boldsymbol{\\alpha}+\\boldsymbol{\\beta} = (a_1+b_1, a_2+b_2, \\dots, a_n+b_n)^\\mathsf{T}\\)。",
+                    "向量的数乘：\\(k\\boldsymbol{\\alpha} = (k a_1, k a_2, \\dots, k a_n)^\\mathsf{T}\\)，其中 \\(k \\in \\mathbb{R}\\)。",
+                    "加法和数乘统称为向量的线性运算，满足交换律、结合律、分配律等八条线性空间公理。"
+                ],
+                engineeringCase: `📌 **拓展练习（典型例题）**  
+**例2** 设 \\(\\boldsymbol{\\alpha} = (1,2,3)^\\mathsf{T}, \\boldsymbol{\\beta} = (4,5,6)^\\mathsf{T}\\)，计算 \\(2\\boldsymbol{\\alpha} + 3\\boldsymbol{\\beta}\\)。  
+**解**：\\(2\\boldsymbol{\\alpha} = (2,4,6)^\\mathsf{T}\\)，\\(3\\boldsymbol{\\beta} = (12,15,18)^\\mathsf{T}\\)，相加得 \\((14,19,24)^\\mathsf{T}\\)。  
+**案例**：无人机集群的协同控制中，速度指令的合成即向量的线性运算。`,
+                aiExtension: `🤖 **应用前沿：神经网络前向传播**  
+全连接层的计算 \\(\\mathbf{y} = \\mathbf{W}\\mathbf{x} + \\mathbf{b}\\) 本质上是向量的数乘与加法运算。`
+            },
+            { 
+                id: "vector_equiv", label: "向量组的等价", group: 1,
+                knowledgePoints: [
+                    "设有两个向量组 \\(A: \\boldsymbol{\\alpha}_1, \\boldsymbol{\\alpha}_2, \\dots, \\boldsymbol{\\alpha}_s\\) 和 \\(B: \\boldsymbol{\\beta}_1, \\boldsymbol{\\beta}_2, \\dots, \\boldsymbol{\\beta}_t\\)。",
+                    "若 \\(A\\) 中每个向量都可由 \\(B\\) 线性表示，且 \\(B\\) 中每个向量都可由 \\(A\\) 线性表示，则称向量组 \\(A\\) 与 \\(B\\) 等价。",
+                    "等价关系具有自反性、对称性、传递性。",
+                    "两个向量组等价 ⇔ 它们的极大线性无关组等价 ⇔ 秩相等且能互相线性表示。"
+                ],
+                engineeringCase: `📌 **拓展练习（典型例题）**  
+**例3** 判断向量组 \\(A: \\alpha_1=(1,0), \\alpha_2=(0,1)\\) 与 \\(B: \\beta_1=(1,1), \\beta_2=(2,2)\\) 是否等价。  
+**解**：\\(B\\) 中 \\(\\beta_2=2\\beta_1\\)，秩为1，而 \\(A\\) 的秩为2，故不等价。  
+**案例**：在有限元分析中，不同的基函数组如果等价，则它们张成相同的函数空间。`,
+                aiExtension: `🧠 **应用前沿：表示学习中的等价性**  
+在自编码器中，不同编码器学习到的隐空间表示若等价（可线性变换得到），则它们具有相同的表达能力。`
+            },
+            { 
+                id: "def_corr", label: "线性相关\n定义", group: 1,
+                knowledgePoints: [
+                    "设向量组 A: α₁, α₂, …, αₘ (m≥1)，如果存在一组不全为零的实数 k₁, k₂, …, kₘ，使得 k₁α₁ + k₂α₂ + … + kₘαₘ = 0，则称向量组 A 线性相关。",
+                    "向量组线性相关的充要条件是：至少有一个向量可由其余向量线性表示。",
+                    "若向量组中含有零向量，则该向量组必线性相关。",
+                    "两个向量线性相关的充要条件是它们的分量对应成比例。"
+                ],
+                engineeringCase: `🚀 **拓展练习（典型例题）**  
+**例4** 判断向量组 α₁=(1,2,3), α₂=(2,4,6), α₃=(1,0,1) 是否线性相关。  
+**解**：设 x₁α₁+x₂α₂+x₃α₃=0，系数矩阵 \\(\\begin{pmatrix}1&2&1\\\\2&4&0\\\\3&6&1\\end{pmatrix}\\)，经初等行变换得秩为2<3，故齐次线性方程组有非零解，向量组线性相关。  
+**案例**：卫星遥测数据冗余诊断——波段2,3,4存在线性关系，快速识别冗余传感器。`,
+                aiExtension: `🤖 **应用前沿：大模型嵌入向量的各向异性矫正**  
+BERT类模型token嵌入常呈现高度线性相关（各向异性），通过白化变换强制去相关，提升语义表征质量。`
+            },
+            { 
+                id: "def_indep", label: "线性无关\n定义", group: 1,
+                knowledgePoints: [
+                    "设向量组 A: α₁, α₂, …, αₘ (m≥1)，如果等式 k₁α₁ + k₂α₂ + … + kₘαₘ = 0 仅在 k₁=k₂=…=kₘ=0 时成立，则称向量组 A 线性无关。",
+                    "向量组线性无关的充要条件是：每个向量都不能由其余向量线性表示。",
+                    "单个非零向量构成的向量组线性无关。",
+                    "若一个向量组线性无关，则它的任何部分组也线性无关（整体无关则部分无关）。"
+                ],
+                engineeringCase: `📡 **拓展练习（典型例题）**  
+**例5** 证明向量组 α₁=(1,1,0), α₂=(1,0,1), α₃=(0,1,1) 线性无关。  
+**证**：设 k₁α₁+k₂α₂+k₃α₃=0，得齐次线性方程组，系数行列式=2≠0，故只有零解，向量组线性无关。  
+**案例**：无人机编队独立控制指令（X,Y,Z轴），线性无关保证三轴运动解耦。`,
+                aiExtension: `🧠 **应用前沿：可解释AI中的特征独立性**  
+LIME/SHAP 方法要求特征向量线性无关，否则归因不稳定。通过检验无关性筛选特征，提高解释可靠性。`
+            },
+            { 
+                id: "rank_method", label: "判别法：秩法\nR(A) < n", group: 2,
+                knowledgePoints: [
+                    "向量组的秩定义为向量组的极大线性无关组所含向量的个数，等于由这些向量构成的矩阵的秩。",
+                    "向量组线性相关 ⇔ 向量组的秩 < 向量的个数。",
+                    "求向量组的秩通常采用初等行变换将矩阵化为行阶梯形，非零行数即为秩。"
+                ],
+                engineeringCase: `🏭 **拓展练习（典型例题）**  
+**例6** 设向量组 α₁=(1,-1,2,4), α₂=(0,3,1,2), α₃=(3,0,7,14), α₄=(1,-1,2,0)，求该向量组的秩并判断相关性。  
+**解**：构造矩阵并化为行阶梯形，得秩=3<4，故向量组线性相关。  
+**案例**：智能产线传感器冗余消除，通过计算数据矩阵的秩定位冗余测量点。`,
+                aiExtension: `🔍 **应用前沿：深度学习通道剪枝**  
+卷积层输出特征图构成的矩阵，其数值秩可用于识别冗余通道，保留秩所对应的独立通道，可减少约40%计算量。`
+            },
+            { 
+                id: "det_method", label: "判别法：行列式\n(n个n维)", group: 2,
+                knowledgePoints: [
+                    "n 个 n 维向量构成方阵，向量组线性无关 ⇔ 该方阵的行列式 ≠ 0；线性相关 ⇔ 行列式 = 0。",
+                    "若向量组线性无关，则添加分量（维数增加）后仍无关；若线性相关，则减少分量（维数减少）后仍相关。"
+                ],
+                engineeringCase: `🧬 **拓展练习（典型例题）**  
+**例7** 确定 λ 的值，使得 α₁=(λ,1,0), α₂=(1,λ,1), α₃=(0,1,λ) 线性相关。  
+**解**：计算行列式 \\(\\det(\\alpha_1,\\alpha_2,\\alpha_3) = \\lambda^3 - \\lambda - 1\\)。令其为零，解得 \\(\\lambda^3 - \\lambda - 1 = 0\\) 时向量组线性相关。  
+**案例**：基因表达谱中三个关键基因的表达量构成的行列式为零，表明其中一个基因冗余，可剔除。`,
+                aiExtension: `⚕️ **应用前沿：行列式点过程(DPP)**  
+在医学影像特征选择中，通过计算子矩阵的行列式采样多样性子集（DPP），可有效减少特征冗余，提升分类模型的 AUC。`
+            },
+            { 
+                id: "geom_2d3d", label: "几何意义\n(共线/共面)", group: 3,
+                knowledgePoints: [
+                    "在 \\(\\mathbb{R}^2\\) 中，两个向量线性相关 ⇔ 它们共线（方向相同或相反）。",
+                    "在 \\(\\mathbb{R}^3\\) 中，三个向量线性相关 ⇔ 它们共面（位于同一平面内）。",
+                    "在 \\(\\mathbb{R}^n\\) 中，任意 n+1 个向量必线性相关。",
+                    "线性无关的向量组在 \\(\\mathbb{R}^n\\) 中构成一个“支架”，能够张成整个 n 维空间（如果个数等于 n）。"
+                ],
+                engineeringCase: `🏗️ **拓展练习（典型例题）**  
+**例8** 设 α,β,γ 线性无关，证明 α+β, β+γ, γ+α 也线性无关。  
+**证**：设 k₁(α+β)+k₂(β+γ)+k₃(γ+α)=0，整理得 (k₁+k₃)α+(k₁+k₂)β+(k₂+k₃)γ=0。由 α,β,γ 线性无关得系数全为零，解得 k₁=k₂=k₃=0，故新向量组线性无关。  
+**案例**：空间网架结构中，若三根杆件的内力向量共面，则无法提供垂直于该面的约束，结构需额外支撑。`,
+                aiExtension: `🎮 **应用前沿：点云法向量估计**  
+在三维重建中，局部邻域内的点坐标向量通常近似共面（线性相关），利用 PCA 最小特征值快速拟合平面，用于自动驾驶路面检测。`
+            },
+            { 
+                id: "max_indep_group", label: "极大无关组\n与秩", group: 3,
+                knowledgePoints: [
+                    "极大线性无关组：向量组的一个部分组，它本身线性无关，并且从原向量组中添加任何一个向量后都线性相关。",
+                    "极大线性无关组所含向量的个数称为向量组的秩。",
+                    "求极大无关组常用方法：将向量作为列构成矩阵，化为行最简形，主元列对应的原向量即构成一个极大无关组。",
+                    "同一向量组的任意两个极大无关组所含向量个数相同，且彼此等价。"
+                ],
+                engineeringCase: `📊 **拓展练习（典型例题）**  
+**例9** 求向量组 α₁=(1,2,1,3), α₂=(4,1,5,6), α₃=(1,-3,-4,-7), α₄=(2,1,2,3) 的秩和一个极大无关组。  
+**解**：构造矩阵并化为行最简形，主元位于第1、2、4列，故 α₁,α₂,α₄ 构成一个极大无关组，秩为3。  
+**案例**：金融时间序列因子压缩——从10只股票中选出秩个代表股票，构建压缩投资组合，保持高相关性同时降低交易成本。`,
+                aiExtension: `📈 **应用前沿：推荐系统用户嵌入降维**  
+基于列采样的思想，选取用户嵌入矩阵的极大无关组（或近似极大无关组），可减少矩阵分解计算量，在线推理时延降低约35%。`
+            },
+            { 
+                id: "sol_structure", label: "解的结构\n与向量组", group: 3,
+                knowledgePoints: [
+                    "齐次线性方程组 Ax=0 的基础解系含有 n - r(A) 个线性无关的解向量。",
+                    "非齐次线性方程组 Ax=b 的通解 = 一个特解 + 对应齐次方程组的通解。",
+                    "若 η₁, η₂ 是 Ax=b 的两个不同解，则 η₁ - η₂ 是 Ax=0 的解。",
+                    "向量组的线性相关性与解空间的维数密切相关：系数矩阵的列向量组线性相关 ⇔ Ax=0 有非零解。"
+                ],
+                engineeringCase: `📖 **拓展练习（典型例题）**  
+**例10** 设 A 为 4×5 矩阵，且 r(A)=3，则齐次线性方程组 Ax=0 的基础解系包含多少个向量？  
+**解**：基础解系含 n - r(A) = 5-3 = 2 个线性无关的解向量。  
+**案例**：电路网络方程组的解空间维度决定自由变量个数，直接影响系统设计的自由度。`,
+                aiExtension: `⚡ **应用前沿：生成模型的隐空间解耦**  
+解耦表示学习要求隐变量线性无关，对应于解空间的一组正交基，从而提升生成模型的可控性和可解释性。`
+            },
+            { 
+                id: "ai_specific", label: "AI应用聚焦\n特征选择", group: 4,
+                knowledgePoints: [
+                    "多重共线性（Multicollinearity）的本质是特征向量之间存在线性相关关系。",
+                    "检验多重共线性常用方差膨胀因子（VIF），VIF > 10 表示存在严重共线性。",
+                    "模型的稳定性要求特征矩阵列满秩（即特征向量线性无关）。",
+                    "剔除线性相关的特征可以降低过拟合风险，提高模型的泛化能力。"
+                ],
+                engineeringCase: `🤖 **拓展练习（典型例题）**  
+**例11** 房价预测模型中，特征矩阵的秩为10，而特征总数为13，说明存在线性相关。请简述特征筛选步骤。  
+**解**：(1) 计算各特征的 VIF；(2) 剔除 VIF>10 的特征；(3) 重新建模并评估性能。  
+**案例**：波士顿房价数据中，“房间数”与“低收入人口比例”的相关系数为0.9，剔除后模型 R² 从0.72提升至0.81。`,
+                aiExtension: `🚀 **应用前沿：扩散模型去相关正则**  
+在 Stable Diffusion 等生成模型中，潜在空间特征向量常呈现相关性，通过加入去相关正则项，可显著提升生成多样性（FID 降低约18%）。`
+            },
+            { 
+                id: "python_demo", label: "Python实践\nNumPy", group: 4,
+                knowledgePoints: [
+                    "使用 np.linalg.matrix_rank(A) 计算矩阵或向量组的秩。",
+                    "使用 np.linalg.det(A) 计算方阵的行列式。",
+                    "使用 np.linalg.solve(A, b) 求解线性方程组 Ax=b。",
+                    "使用 np.linalg.eig(A) 计算特征值与特征向量，辅助分析相关性。"
+                ],
+                engineeringCase: `💻 **拓展练习（代码实现）**  
+\`\`\`python
+import numpy as np
+# 构造向量组（按列排列）
+A = np.array([[1,2,3],
+              [2,4,6],
+              [1,1,2]])
+rank = np.linalg.matrix_rank(A)
+print("矩阵的秩:", rank)   # 输出2，小于列数3，因此列向量组线性相关
+\`\`\`
+**案例**：智能电网异常检测中，每日计算百万级传感器数据矩阵的秩，快速定位冗余测点。`,
+                aiExtension: `🧪 **应用前沿：PyTorch 自注意力正交正则**  
+在 Transformer 训练中加入正则项 \\(\\lambda\\|HH^\\top - I\\|_F\\)，强制注意力头的输出特征向量趋于正交（线性无关），从而提升多头的多样性。`
+            }
+        ];
+
+        // 边：知识关联（新增的三个节点与相关节点连接）
+        const edgesData = [
+            { source: "vector_def", target: "linear_ops" },
+            { source: "linear_ops", target: "vector_equiv" },
+            { source: "vector_equiv", target: "def_corr" },
+            { source: "vector_equiv", target: "def_indep" },
+            { source: "def_corr", target: "def_indep" },
+            { source: "def_corr", target: "rank_method" },
+            { source: "def_corr", target: "det_method" },
+            { source: "def_corr", target: "geom_2d3d" },
+            { source: "def_indep", target: "max_indep_group" },
+            { source: "rank_method", target: "max_indep_group" },
+            { source: "det_method", target: "geom_2d3d" },
+            { source: "geom_2d3d", target: "max_indep_group" },
+            { source: "rank_method", target: "sol_structure" },
+            { source: "max_indep_group", target: "sol_structure" },
+            { source: "sol_structure", target: "ai_specific" },
+            { source: "rank_method", target: "ai_specific" },
+            { source: "ai_specific", target: "python_demo" },
+            { source: "def_corr", target: "python_demo" },
+            { source: "sol_structure", target: "python_demo" }
+        ];
+
+        // 构建 cytoscape 元素
+        const elements = [];
+        nodesData.forEach(node => {
+            elements.push({
+                data: {
+                    id: node.id,
+                    label: node.label,
+                    group: node.group,
+                    knowledgePoints: node.knowledgePoints,
+                    engineeringCase: node.engineeringCase,
+                    aiExtension: node.aiExtension
+                }
+            });
+        });
+        edgesData.forEach(edge => {
+            elements.push({
+                data: {
+                    id: `${edge.source}_${edge.target}`,
+                    source: edge.source,
+                    target: edge.target
+                }
+            });
+        });
+
+        const colorMap = {
+            1: '#2C6E9E',
+            2: '#3BA99C',
+            3: '#E67E22',
+            4: '#9B59B6'
+        };
+
+        // 页面加载后初始化图谱
+        window.addEventListener('load', function() {
+            try {
+                const cy = cytoscape({
+                    container: document.getElementById('cy'),
+                    elements: elements,
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'label': 'data(label)',
+                                'background-color': (ele) => colorMap[ele.data('group')] || '#888',
+                                'shape': 'round-rectangle',
+                                'width': '170px',
+                                'height': '100px',
+                                'padding': '10px 12px',
+                                'color': '#ffffff',
+                                'font-size': '16px',
+                                'font-weight': '600',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'text-wrap': 'wrap',
+                                'text-max-width': '150px',
+                                'border-width': 2,
+                                'border-color': '#ffffffcc',
+                                'shadow-blur': 10,
+                                'shadow-color': '#00000050',
+                                'shadow-offset-x': 2,
+                                'shadow-offset-y': 2,
+                                'transition-property': 'transform, shadow-blur',
+                                'transition-duration': '0.2s'
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'width': 2.8,
+                                'line-color': '#7b8faa',
+                                'curve-style': 'bezier',
+                                'target-arrow-color': '#7b8faa',
+                                'target-arrow-shape': 'triangle',
+                                'arrow-scale': 1.2,
+                                'opacity': 0.7
+                            }
+                        },
+                        {
+                            selector: 'edge:hover',
+                            style: {
+                                'line-color': '#f5a742',
+                                'width': 4,
+                                'opacity': 1
+                            }
+                        }
+                    ],
+                    layout: {
+                        name: 'grid',
+                        rows: 3,
+                        fit: true,
+                        padding: 60,
+                        animate: false,
+                        avoidOverlap: true
+                    },
+                    wheelSensitivity: 0.4,
+                    minZoom: 0.3,
+                    maxZoom: 3.0,
+                    userZoomingEnabled: true,
+                    userPanningEnabled: true
+                });
+
+                cy.ready(() => {
+                    cy.fit(60);
+                    cy.center();
+                });
+
+                // 悬停效果
+                cy.on('mouseover', 'node', (evt) => {
+                    evt.target.style({ 'transform': 'scale(1.08)', 'shadow-blur': 20, 'z-index': 999 });
+                });
+                cy.on('mouseout', 'node', (evt) => {
+                    evt.target.style({ 'transform': 'scale(1)', 'shadow-blur': 10 });
+                });
+
+                // 涟漪动画
+                function addRipple(x, y) {
+                    const ripple = document.createElement('div');
+                    ripple.className = 'ripple';
+                    ripple.style.left = (x - 25) + 'px';
+                    ripple.style.top = (y - 25) + 'px';
+                    ripple.style.width = '50px';
+                    ripple.style.height = '50px';
+                    document.body.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                }
+
+                // 清理参考文献字样
+                function removeReferences(text) {
+                    if (!text) return text;
+                    return text.replace(/[【\[]?参考文献[:\s]*[^\\n<]*/gi, '')
+                               .replace(/[（(]?参考[：:]\s*[^\\n<]*/gi, '')
+                               .replace(/[（(]?学术支撑[：:]\s*[^\\n<]*/gi, '')
+                               .replace(/\*\*参考文献\*\*：?[^\n]*/gi, '')
+                               .replace(/\*\*参考\*\*：?[^\n]*/gi, '')
+                               .replace(/\n\s*\n/g, '\n');
+                }
+
+                // 生成详情页面（包含 MathJax 渲染）
+                function generateDetailPageContent(nodeId) {
+                    const nodeData = nodesData.find(n => n.id === nodeId);
+                    if (!nodeData) return "<html><body><h2>知识点不存在</h2></body></html>";
+                    let { label, knowledgePoints, engineeringCase, aiExtension, group } = nodeData;
+                    engineeringCase = removeReferences(engineeringCase);
+                    aiExtension = removeReferences(aiExtension);
+                    
+                    const groupName = group === 1 ? '🔵 核心定义' : (group === 2 ? '🟢 判别方法' : (group === 3 ? '🟠 几何与解结构' : '🔴 AI前沿与计算'));
+                    const groupColor = group === 1 ? '#2C6E9E' : (group === 2 ? '#3BA99C' : (group === 3 ? '#E67E22' : '#9B59B6'));
+                    
+                    let knowledgeHtml = '<ol style="margin:0; padding-left:1.2rem;">';
+                    knowledgePoints.forEach(point => {
+                        knowledgeHtml += `<li style="margin-bottom:0.5rem;">${point}</li>`;
+                    });
+                    knowledgeHtml += '</ol>';
+                    
+                    const formatText = (text) => {
+                        let formatted = text.replace(/\n/g, '<br>')
+                                           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        formatted = formatted.replace(/工程案例：/g, '案例：');
+                        formatted = formatted.replace(/AI\+科技应用：/g, '应用前沿：');
+                        formatted = formatted.replace(/```python(.*?)```/gs, '<pre style="background:#1e293b; color:#e2e8f0; padding:12px; border-radius:12px; overflow-x:auto; font-family:monospace;">$1</pre>');
+                        return formatted;
+                    };
+                    
+                    let engHtml = formatText(engineeringCase);
+                    let aiHtml = formatText(aiExtension);
+                    
+                    return `<!DOCTYPE html>
+                    <html>
+                    <head><meta charset="UTF-8"><title>知识图谱 · ${label.replace(/\n/g, ' ')}</title>
+                    <script>
+                        window.MathJax = {
+                            tex: { inlineMath: [['$', '$'], ['\\\\(', '\\\\)']], displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']], processEscapes: true },
+                            options: { ignoreHtmlClass: 'no-mathjax' }
+                        };
+                    <\/script>
+                    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async><\/script>
+                    <style>
+                        body { font-family: 'Segoe UI', 'PingFang SC', system-ui; background: #f1f5f9; margin: 0; padding: 2rem; }
+                        .container { max-width: 1200px; margin: 0 auto; }
+                        .card { background: white; border-radius: 2rem; padding: 2rem; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.15); margin-bottom: 2rem; }
+                        .badge { display: inline-block; background: ${groupColor}; color: white; padding: 6px 18px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; margin-bottom: 1rem; }
+                        h1 { font-size: 2rem; margin: 0.2rem 0 0.5rem 0; color: #0f172a; }
+                        .knowledge-box { background: #eef2ff; padding: 1.2rem; border-radius: 1.5rem; margin: 1.2rem 0; border-left: 6px solid ${groupColor}; }
+                        .section-title { font-size: 1.6rem; margin: 1.5rem 0 0.8rem 0; border-left: 6px solid ${groupColor}; padding-left: 1rem; }
+                        .case-box, .ai-box { background: #f8fafc; padding: 1.4rem; border-radius: 1.5rem; margin: 1rem 0; line-height: 1.6; border: 1px solid #e2e8f0; }
+                        .ai-box { background: #fef2e8; border-left: 6px solid #9B59B6; }
+                        button { background: #e2e8f0; border: none; padding: 10px 28px; border-radius: 40px; font-size: 1rem; cursor: pointer; margin-top: 1rem; font-weight: 500; transition: 0.2s; }
+                        button:hover { background: #cbd5e1; transform: scale(0.98); }
+                        hr { margin: 1.8rem 0; border: 1px solid #e2e8f0; }
+                        pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 1rem; overflow-x: auto; font-family: monospace; white-space: pre-wrap; }
+                        ol { margin: 0.5rem 0 0 1rem; }
+                        li { margin-bottom: 0.6rem; line-height: 1.5; }
+                    </style>
+                    </head>
+                    <body>
+                    <div class="container">
+                        <div class="card">
+                            <div class="badge">${groupName}</div>
+                            <h1>${label.replace(/\n/g, ' ')}</h1>
+                            <div class="knowledge-box">
+                                <strong>📖 知识点</strong>
+                                ${knowledgeHtml}
+                            </div>
+                            <div class="section-title">📚 拓展练习（含典型例题）</div>
+                            <div class="case-box">${engHtml}</div>
+                            <div class="section-title">🤖 应用前沿</div>
+                            <div class="ai-box">${aiHtml}</div>
+                            <hr>
+                            <div style="text-align: right;">
+                                <button onclick="window.close()">✖ 关闭窗口，返回知识图谱</button>
+                            </div>
+                        </div>
+                    </div>
+                    </body>
+                    </html>`;
+                }
+
+                // 节点点击事件
+                cy.on('tap', 'node', (evt) => {
+                    const node = evt.target;
+                    const pos = node.renderedPosition();
+                    if (pos) addRipple(pos.x, pos.y);
+                    const htmlContent = generateDetailPageContent(node.id());
+                    const blob = new Blob([htmlContent], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                    setTimeout(() => URL.revokeObjectURL(url), 30000);
+                });
+
+                // 控制按钮
+                document.getElementById('btnReset').addEventListener('click', () => {
+                    cy.layout({ name: 'grid', rows: 3, fit: true, padding: 60, animate: true, avoidOverlap: true }).run();
+                    setTimeout(() => cy.fit(60), 300);
+                });
+                document.getElementById('btnZoomIn').addEventListener('click', () => cy.zoom({ level: cy.zoom() * 1.2 }));
+                document.getElementById('btnZoomOut').addEventListener('click', () => cy.zoom({ level: cy.zoom() * 0.85 }));
+                document.getElementById('btnFit').addEventListener('click', () => cy.fit(50));
+                window.addEventListener('resize', () => cy.fit(50));
+            } catch (error) {
+                console.error(error);
+                const errDiv = document.createElement('div');
+                errDiv.className = 'error-message';
+                errDiv.innerText = '图谱加载失败，请刷新页面重试。';
+                document.body.appendChild(errDiv);
+                setTimeout(() => errDiv.remove(), 5000);
+            }
+        });
+    })();
+</script>
+</body>
+</html>
